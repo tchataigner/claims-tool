@@ -1,7 +1,7 @@
 pragma solidity ^0.5.2;
 
 import './ERC735.sol';
-import "github.com/OpenZeppelin/openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
+import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 /**
  * @author Thomas Chataigner <Blockchain Partner>
@@ -14,14 +14,14 @@ contract ClaimHolder is ERC735 {
 
     bytes32[] public topics;
 
-    mapping(bytes32 => bool) existingTopic;
+    mapping(bytes32 => bool) public existingTopic;
 
     mapping(bytes32 => Claim) public claims;
 
     mapping(bytes32 => bytes32[]) public claimsByTopic;
 
     modifier onlyIssuer(bytes32 _claimId) {
-        require(claims[_claimId].issuer != msg.sender, "msg.sender should be the claim issuer");
+        require(claims[_claimId].issuer == msg.sender, "msg.sender should be the claim issuer");
 
         _;
     }
@@ -36,8 +36,13 @@ contract ClaimHolder is ERC735 {
         owner = _owner;
     }
 
-    function getClaim(bytes32 _claimId) external view returns(bytes32 topic, uint256 scheme, address issuer, bytes memory signature, bytes memory data, string memory uri) {
-        return(claims[_claimId].topic, claims[_claimId].scheme, claims[_claimId].issuer, claims[_claimId].signature, claims[_claimId].data, claims[_claimId].uri);
+    function getClaim(bytes32 _claimId) external view returns(bytes32 topic, uint256 scheme, address issuer, bytes memory signature, bytes memory data, string memory uri, bool recipientReview, bool isValid) {
+        Claim storage c = claims[_claimId];
+        return(c.topic, c.scheme, c.issuer, c.signature, c.data, c.uri, c.recipientReview, c.isValid);
+    }
+
+    function getTopics() external view returns(bytes32[] memory createdTopics) {
+        return topics;
     }
 
     function getClaimIdsByTopic(bytes32 _topic) external view returns(bytes32[] memory claimIds) {
@@ -55,29 +60,29 @@ contract ClaimHolder is ERC735 {
             claimIds[i] = nonFilteredClaimIds[claimsIdsTemp[i]];
     }
 
-    function addClaim(bytes32 _topic, uint256 _scheme, bytes calldata _signature, bytes calldata _data, string calldata _uri) external returns (bytes32 claimId) {
+    function addClaim(bytes32 _topic, uint256 _scheme, bytes calldata _signature, bytes calldata _data, string calldata _uri) external returns (bytes32 claimRequestId) {
         address who = keccak256(abi.encodePacked(msg.sender, address(this), _topic, _data)).toEthSignedMessageHash().recover(_signature);
         require(who == msg.sender, "Claims sender does not seem to be msg.sender");
 
-        claimId = keccak256(abi.encodePacked(msg.sender, owner, _topic));
+        claimRequestId = keccak256(abi.encodePacked(msg.sender, owner, _topic));
 
         if(!existingTopic[_topic]) {
             topics.push(_topic);
             existingTopic[_topic] = true;
         }
 
-        claims[claimId].topic = _topic;
-        claims[claimId].scheme = _scheme;
-        claims[claimId].issuer = msg.sender;
-        claims[claimId].signature = _signature;
-        claims[claimId].data = _data;
-        claims[claimId].uri = _uri;
-        claims[claimId].isValid = true;
+        claims[claimRequestId].topic = _topic;
+        claims[claimRequestId].scheme = _scheme;
+        claims[claimRequestId].issuer = msg.sender;
+        claims[claimRequestId].signature = _signature;
+        claims[claimRequestId].data = _data;
+        claims[claimRequestId].uri = _uri;
+        claims[claimRequestId].isValid = true;
 
-        claimsByTopic[_topic].push(claimId);
+        claimsByTopic[_topic].push(claimRequestId);
 
         emit ClaimAdded(
-            claimId,
+            claimRequestId,
             _topic,
             _scheme,
             msg.sender,
@@ -86,26 +91,29 @@ contract ClaimHolder is ERC735 {
             _uri
         );
 
-        return claimId;
+        return claimRequestId;
     }
 
-    function changeClaim(bytes32 _claimId, uint256 _scheme, address _issuer, bytes calldata _signature, bytes calldata _data, string calldata _uri) external onlyIssuer(_claimId) returns (bool success) {
-        address who = keccak256(abi.encodePacked(msg.sender, address(this), claims[_claimId].topic, _data)).toEthSignedMessageHash().recover(_signature);
+    function changeClaim(bytes32 _claimId, uint256 _scheme, bytes calldata _signature, bytes calldata _data, string calldata _uri) external onlyIssuer(_claimId) returns (bool success) {
+
+        Claim storage claim = claims[_claimId];
+
+        address who = keccak256(abi.encodePacked(msg.sender, address(this), claim.topic, _data)).toEthSignedMessageHash().recover(_signature);
         require(who == msg.sender, "Claims sender does not seem to be msg.sender");
 
-        claims[_claimId].scheme = _scheme;
-        claims[_claimId].issuer = _issuer;
-        claims[_claimId].signature = _signature;
-        claims[_claimId].data = _data;
-        claims[_claimId].uri = _uri;
-        claims[_claimId].recipientReview = false;
-        claims[_claimId].isValid = true;
+
+        claim.scheme = _scheme;
+        claim.signature = _signature;
+        claim.data = _data;
+        claim.uri = _uri;
+        claim.recipientReview = false;
+        claim.isValid = true;
 
         emit ClaimChanged(
             _claimId,
-            claims[_claimId].topic,
+            claim.topic,
             _scheme,
-            _issuer,
+            claim.issuer,
             _signature,
             _data,
             _uri
@@ -116,8 +124,6 @@ contract ClaimHolder is ERC735 {
     }
 
     function removeClaim(bytes32 _claimId) external onlyIssuer(_claimId) returns (bool success) {
-        require(claims[_claimId].issuer != msg.sender, "msg.sender should be the claim issuer");
-
         bytes32 topic = claims[_claimId].topic;
         uint256 scheme = claims[_claimId].scheme;
         address issuer = claims[_claimId].issuer;

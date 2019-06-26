@@ -32,7 +32,7 @@ contract KeyManager is ERC734 {
      */
     modifier onlyManagementKeyOrSelf() {
         if (msg.sender != address(this)) {
-            require(keyHasPurpose(keccak256(abi.encodePacked(msg.sender)), MANAGEMENT_KEY));
+            require(keyHasPurpose(keccak256(abi.encodePacked(msg.sender)), MANAGEMENT_KEY), "Only owner or management keys can call this function");
         }
         _;
     }
@@ -101,7 +101,7 @@ contract KeyManager is ERC734 {
      * @dev Return number of keys added in the manager
      * @return uint256 count number of keys added to the manager
      */
-    function getKeycount() public view returns (uint256 count) {
+    function getKeyCount() public view returns (uint256 count) {
         return keysIds.length;
     }
     /**
@@ -196,12 +196,8 @@ contract KeyManager is ERC734 {
         if (isConfirmed(_executionId)) {
             Transaction storage txn = transactions[_executionId];
             txn.executed = true;
-            if (external_call(txn.destination, txn.value, txn.data.length, txn.data))
-                emit Executed(_executionId, txn.destination, txn.value, txn.data);
-            else {
-                emit ExecutionFailure(_executionId, txn.destination, txn.value, txn.data);
-                txn.executed = false;
-            }
+            require (external_call(txn.destination, txn.value, txn.data.length, txn.data), "External call has failed");
+            emit Executed(_executionId, txn.destination, txn.value, txn.data);
         }
     }
 
@@ -220,7 +216,7 @@ contract KeyManager is ERC734 {
         for (uint256 i=0; i<keysIds.length; i++) {
             if (keyHasPurpose(keysIds[i], txn.purpose) && confirmations[_executionId][keysIds[i]])
                 count += 1;
-            if (count == requiredApproval[txn.purpose])
+            if (count >= requiredApproval[txn.purpose])
                 succes = true;
         }
     }
@@ -333,5 +329,24 @@ contract KeyManager is ERC734 {
         _executionsIds = new uint[](_to - _from);
         for (i=_from; i<_to; i++)
             _executionsIds[i - _from] = executionsIdsTemp[i];
+    }
+
+    function getKeysByPurpose(uint256 _purpose)
+    public
+    view
+    returns (bytes32[] memory _keys)
+    {
+        uint256[] memory keysIdsTmp = new uint256[](keysIds.length);
+        uint256 count = 0;
+        uint256 i;
+        for (i=0; i<keysIds.length; i++)
+            if (keyHasPurpose(keysIds[i], _purpose))
+            {
+                keysIdsTmp[count] = i;
+                count += 1;
+            }
+        _keys = new bytes32[](count);
+        for (i=0; i<count; i++)
+            _keys[i] = keysIds[keysIdsTmp[i]];
     }
 }

@@ -102,6 +102,7 @@ contract ProxyAccount is ERC725 {
             executeCall(_to, _value, _data);
         } else if (_operationType == OPERATION_CREATE) {
             address newContract = executeCreate(_data);
+            if(address(newContract) == address(0)) revert();
             emit ContractCreated(newContract);
         } else {
             // We don't want to spend users gas if parameters are wrong
