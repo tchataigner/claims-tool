@@ -1,14 +1,12 @@
 pragma solidity ^0.5.2;
 
 import './ERC735.sol';
-import "openzeppelin-solidity/contracts/cryptography/ECDSA.sol";
 
 /**
  * @author Thomas Chataigner <Blockchain Partner>
  * @title Proxy Account ERC725 Implementation
  */
 contract ClaimHolder is ERC735 {
-    using ECDSA for bytes32;
 
     address public owner;
 
@@ -36,9 +34,9 @@ contract ClaimHolder is ERC735 {
         owner = _owner;
     }
 
-    function getClaim(bytes32 _claimId) external view returns(bytes32 topic, uint256 scheme, address issuer, bytes memory signature, bytes memory data, string memory uri, bool recipientReview, bool isValid) {
+    function getClaim(bytes32 _claimId) external view returns(bytes32 topic, uint256 scheme, address issuer, bytes memory data, string memory uri, bool recipientReview, bool isValid) {
         Claim storage c = claims[_claimId];
-        return(c.topic, c.scheme, c.issuer, c.signature, c.data, c.uri, c.recipientReview, c.isValid);
+        return(c.topic, c.scheme, c.issuer, c.data, c.uri, c.recipientReview, c.isValid);
     }
 
     function getTopics() external view returns(bytes32[] memory createdTopics) {
@@ -60,9 +58,7 @@ contract ClaimHolder is ERC735 {
             claimIds[i] = nonFilteredClaimIds[claimsIdsTemp[i]];
     }
 
-    function addClaim(bytes32 _topic, uint256 _scheme, bytes calldata _signature, bytes calldata _data, string calldata _uri) external returns (bytes32 claimRequestId) {
-        address who = keccak256(abi.encodePacked(msg.sender, address(this), _topic, _data)).toEthSignedMessageHash().recover(_signature);
-        require(who == msg.sender, "Claims sender does not seem to be msg.sender");
+    function addClaim(bytes32 _topic, uint256 _scheme, bytes calldata _data, string calldata _uri) external returns (bytes32 claimRequestId) {
 
         claimRequestId = keccak256(abi.encodePacked(msg.sender, owner, _topic));
 
@@ -74,7 +70,6 @@ contract ClaimHolder is ERC735 {
         claims[claimRequestId].topic = _topic;
         claims[claimRequestId].scheme = _scheme;
         claims[claimRequestId].issuer = msg.sender;
-        claims[claimRequestId].signature = _signature;
         claims[claimRequestId].data = _data;
         claims[claimRequestId].uri = _uri;
         claims[claimRequestId].isValid = true;
@@ -86,7 +81,6 @@ contract ClaimHolder is ERC735 {
             _topic,
             _scheme,
             msg.sender,
-            _signature,
             _data,
             _uri
         );
@@ -94,16 +88,11 @@ contract ClaimHolder is ERC735 {
         return claimRequestId;
     }
 
-    function changeClaim(bytes32 _claimId, uint256 _scheme, bytes calldata _signature, bytes calldata _data, string calldata _uri) external onlyIssuer(_claimId) returns (bool success) {
+    function changeClaim(bytes32 _claimId, uint256 _scheme, bytes calldata _data, string calldata _uri) external onlyIssuer(_claimId) returns (bool success) {
 
         Claim storage claim = claims[_claimId];
 
-        address who = keccak256(abi.encodePacked(msg.sender, address(this), claim.topic, _data)).toEthSignedMessageHash().recover(_signature);
-        require(who == msg.sender, "Claims sender does not seem to be msg.sender");
-
-
         claim.scheme = _scheme;
-        claim.signature = _signature;
         claim.data = _data;
         claim.uri = _uri;
         claim.recipientReview = false;
@@ -114,7 +103,6 @@ contract ClaimHolder is ERC735 {
             claim.topic,
             _scheme,
             claim.issuer,
-            _signature,
             _data,
             _uri
         );
@@ -127,7 +115,6 @@ contract ClaimHolder is ERC735 {
         bytes32 topic = claims[_claimId].topic;
         uint256 scheme = claims[_claimId].scheme;
         address issuer = claims[_claimId].issuer;
-        bytes memory signature = claims[_claimId].signature;
         bytes memory data = claims[_claimId].data;
         string memory uri = claims[_claimId].uri;
 
@@ -139,7 +126,6 @@ contract ClaimHolder is ERC735 {
             topic,
             scheme,
             issuer,
-            signature,
             data,
             uri
         );
@@ -156,7 +142,6 @@ contract ClaimHolder is ERC735 {
             claims[_claimId].topic,
             claims[_claimId].scheme,
             claims[_claimId].issuer,
-            claims[_claimId].signature,
             claims[_claimId].data,
             claims[_claimId].uri
         );

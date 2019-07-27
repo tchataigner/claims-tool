@@ -1,7 +1,5 @@
 const ClaimHolder = artifacts.require("ClaimHolder");
 
-const {fixSignature} = require('./helpers/sign');
-
 const truffleAssert = require('truffle-assertions');
 
 const BigNumber = require('bignumber.js');
@@ -27,41 +25,10 @@ contract('Claim Holder', ([owner, random]) => {
             claimHolderInstance = await ClaimHolder.new(owner, {from: owner});
         });
 
-        it('Checks that reverts if signature is wrong', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, owner));
-
-            await truffleAssert.reverts(
-                claimHolderInstance.addClaim(
-                    web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                    1,
-                    signature,
-                    web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
-                    "",
-                    {from: random}
-                ),
-                "Claims sender does not seem to be msg.sender"
-            );
-        });
-
         it('Checks that topic is added to existing topics', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "",
                 {from: random}
@@ -77,18 +44,9 @@ contract('Claim Holder', ([owner, random]) => {
         });
 
         it('Checks that claim data are correctly stored', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "uri",
                 {from: random}
@@ -104,24 +62,14 @@ contract('Claim Holder', ([owner, random]) => {
             expect(payload.topic).to.eq(web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')));
             expect((new BigNumber(payload.scheme)).toNumber()).to.eq(1);
             expect(payload.issuer).to.eq(random);
-            expect(payload.signature).to.eq(signature);
             expect(payload.data).to.eq(web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')));
             expect(payload.uri).to.eq("uri");
         });
 
         it('Checks that claim is added in claim by topic mapping', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "uri",
                 {from: random}
@@ -142,18 +90,9 @@ contract('Claim Holder', ([owner, random]) => {
         });
 
         it('Checks that ClaimAdded event is fired', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             let receipt = await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "uri",
                 {from: random}
@@ -171,7 +110,6 @@ contract('Claim Holder', ([owner, random]) => {
                 expect(log.args.claimId).to.eq(expectedId);
                 expect(log.args.topic).to.eq(web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')));
                 expect((new BigNumber(log.args.scheme)).toNumber()).to.eq(1);
-                expect(log.args.signature).to.eq(signature);
                 expect(log.args.data).to.eq(web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')));
                 expect(log.args.uri).to.eq("uri");
                 expect(web3.utils.toChecksumAddress(log.args.issuer)).to.eq(web3.utils.toChecksumAddress(random));
@@ -184,19 +122,9 @@ contract('Claim Holder', ([owner, random]) => {
 
         beforeEach(async () => {
             claimHolderInstance = await ClaimHolder.new(owner, {from: owner});
-
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "",
                 {from: random}
@@ -210,19 +138,10 @@ contract('Claim Holder', ([owner, random]) => {
         });
 
         it('Checks that only issuer can update claim', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, owner));
-
             await truffleAssert.reverts(
                 claimHolderInstance.changeClaim(
                     claimId,
                     1,
-                    signature,
                     web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris')),
                     "uri",
                     {from: owner}
@@ -231,40 +150,10 @@ contract('Claim Holder', ([owner, random]) => {
             );
         });
 
-        it('Checks that fails if signature problem', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, owner));
-            await truffleAssert.reverts(
-                claimHolderInstance.changeClaim(
-                    claimId,
-                    1,
-                    signature,
-                    web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris')),
-                    "uri",
-                    {from: random}
-                ),
-                "Claims sender does not seem to be msg.sender"
-            );
-        });
-
         it('Checks that data are correctly saved', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.changeClaim(
                 claimId,
                 2,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris')),
                 "uri2",
                 {from: random}
@@ -275,24 +164,14 @@ contract('Claim Holder', ([owner, random]) => {
             expect(payload.topic).to.eq(web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')));
             expect((new BigNumber(payload.scheme)).toNumber()).to.eq(2);
             expect(payload.issuer).to.eq(random);
-            expect(payload.signature).to.eq(signature);
             expect(payload.data).to.eq(web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris')));
             expect(payload.uri).to.eq("uri2");
         });
 
         it('Checks that ClaimChanged event is fired', async () => {
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris'))
-            );
-            let signature = fixSignature(await web3.eth.sign(hash, random));
-
             let receipt = await claimHolderInstance.changeClaim(
                 claimId,
                 2,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris')),
                 "uri2",
                 {from: random}
@@ -304,7 +183,6 @@ contract('Claim Holder', ([owner, random]) => {
                 expect(log.args.claimId).to.eq(claimId);
                 expect(log.args.topic).to.eq(web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')));
                 expect((new BigNumber(log.args.scheme)).toNumber()).to.eq(2);
-                expect(log.args.signature).to.eq(signature);
                 expect(log.args.data).to.eq(web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('57 rue Daguerre, 75014, Paris')));
                 expect(log.args.uri).to.eq("uri2");
                 expect(web3.utils.toChecksumAddress(log.args.issuer)).to.eq(web3.utils.toChecksumAddress(random));
@@ -314,23 +192,13 @@ contract('Claim Holder', ([owner, random]) => {
 
     describe("Unvalid Claim", function () {
         let claimId;
-        let signature;
 
         beforeEach(async () => {
             claimHolderInstance = await ClaimHolder.new(owner, {from: owner});
 
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "",
                 {from: random}
@@ -376,7 +244,6 @@ contract('Claim Holder', ([owner, random]) => {
                 expect(log.args.claimId).to.eq(claimId);
                 expect(log.args.topic).to.eq(web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')));
                 expect((new BigNumber(log.args.scheme)).toNumber()).to.eq(1);
-                expect(log.args.signature).to.eq(signature);
                 expect(log.args.data).to.eq(web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')));
                 expect(log.args.uri).to.eq("");
                 expect(web3.utils.toChecksumAddress(log.args.issuer)).to.eq(web3.utils.toChecksumAddress(random));
@@ -384,25 +251,15 @@ contract('Claim Holder', ([owner, random]) => {
         });
     });
 
-    describe("Unvalid Claim", function () {
+    describe("Toggle Claim Review", function () {
         let claimId;
-        let signature;
 
         beforeEach(async () => {
             claimHolderInstance = await ClaimHolder.new(owner, {from: owner});
 
-            let hash = web3.utils.soliditySha3(
-                random,
-                claimHolderInstance.address,
-                web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
-                web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières'))
-            );
-            signature = fixSignature(await web3.eth.sign(hash, random));
-
             await claimHolderInstance.addClaim(
                 web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')),
                 1,
-                signature,
                 web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')),
                 "",
                 {from: random}
@@ -450,7 +307,6 @@ contract('Claim Holder', ([owner, random]) => {
                 expect(log.args.claimId).to.eq(claimId);
                 expect(log.args.topic).to.eq(web3.eth.abi.encodeParameter('bytes32', web3.utils.fromAscii('address')));
                 expect((new BigNumber(log.args.scheme)).toNumber()).to.eq(1);
-                expect(log.args.signature).to.eq(signature);
                 expect(log.args.data).to.eq(web3.eth.abi.encodeParameter('bytes', web3.utils.fromAscii('2 rue Zuber, 25320, Boussières')));
                 expect(log.args.uri).to.eq("");
                 expect(web3.utils.toChecksumAddress(log.args.issuer)).to.eq(web3.utils.toChecksumAddress(random));
