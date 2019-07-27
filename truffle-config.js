@@ -1,5 +1,6 @@
 require('babel-register');
 require('babel-polyfill');
+const HDWalletProvider = require('truffle-hdwallet-provider');
 
 module.exports = {
     compilers: {
@@ -19,12 +20,14 @@ module.exports = {
             gas: 6721970,
             gasPrice: 1
         },
-        coverage: {
-            host: "localhost",
-            network_id: "*",
-            port: 8545,
-            gas: 6721970,
-            gasPrice: 0x01
-        }
+        ropsten: {
+            provider: function() {
+                return new HDWalletProvider(
+                    process.env.MNEMONIC,
+                    `https://ropsten.infura.io/v3/${process.env.ROPSTEN_INFURA_API_KEY}`
+                )
+            },
+            network_id: '3',
+        },
     }
 };
